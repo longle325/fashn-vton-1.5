@@ -2,7 +2,7 @@
 
 A Gradio application that combines AI-powered fashion recommendations with virtual try-on capabilities.
 
-**Tech Stack:** Gradio | Gemini 2.0 Flash | Tavily Search | FASHN VTON 1.5
+**Tech Stack:** Gradio | Gemini 2.5 Flash Lite | Amazon Search | FASHN VTON 1.5
 
 ---
 
@@ -120,7 +120,7 @@ git push origin feature/your-feature-name
 
 | Variable | Purpose | Source |
 |----------|---------|--------|
-| `GEMINI_API_KEY` | Gemini 2.0 Flash API access | [Google AI Studio](https://aistudio.google.com/) |
+| `GEMINI_API_KEY` | Gemini 2.5 Flash Lite API access | [Google AI Studio](https://aistudio.google.com/) |
 | `TAVILY_API_KEY` | Garment image search | [Tavily](https://tavily.com/) |
 
 ### VTO Settings (config.py)

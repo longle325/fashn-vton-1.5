@@ -12,6 +12,7 @@ load_dotenv(env_path)
 # API Keys
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
 
 # VTO Settings
 VTO_WEIGHTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "weights")
@@ -23,7 +24,7 @@ SEARCH_NUM_RESULTS = 10
 SEARCH_INCLUDE_IMAGES = True
 
 # Gemini Settings
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-2.5-flash-lite"  # Changed from "gemini-2.5-flash-lite" (typo)
 GEMINI_TEMPERATURE = 0.7
 GEMINI_MAX_TOKENS = 2048
 

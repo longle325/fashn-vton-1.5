@@ -1,32 +1,29 @@
-"""Tavily search service for finding garments online."""
-
 import logging
 from typing import Any, Dict, List, Optional
 
 from PIL import Image
-from tavily import TavilyClient
+from serpapi import GoogleSearch
 
-from config import TAVILY_API_KEY, SEARCH_NUM_RESULTS
+from config import SERPAPI_API_KEY, SEARCH_NUM_RESULTS
 from utils.image_utils import download_image
 
 logger = logging.getLogger(__name__)
 
 
 class SearchService:
-    """Service for searching garments using Tavily API."""
+    """Service for searching garments using Amazon (via SerpApi)."""
 
     def __init__(self, api_key: Optional[str] = None):
         """
-        Initialize Tavily search service.
+        Initialize Amazon search service.
 
         Args:
-            api_key: Tavily API key. If None, uses TAVILY_API_KEY from config.
+            api_key: SerpApi API key. If None, uses SERPAPI_API_KEY from config.
         """
-        self.api_key = api_key or TAVILY_API_KEY
+        self.api_key = api_key or SERPAPI_API_KEY
         if not self.api_key:
-            raise ValueError("TAVILY_API_KEY not set. Please set the environment variable.")
+            raise ValueError("SERPAPI_API_KEY not set. Please set the environment variable.")
 
-        self.client = TavilyClient(api_key=self.api_key)
         self._cache: Dict[str, List[Dict[str, Any]]] = {}
 
     def search_garments(
@@ -36,7 +33,7 @@ class SearchService:
         include_images: bool = True,
     ) -> List[Dict[str, Any]]:
         """
-        Search for garments using Tavily API.
+        Search for garments using Amazon (SerpApi).
 
         Args:
             keywords: Search keywords
@@ -44,7 +41,7 @@ class SearchService:
             include_images: Whether to include image URLs in results
 
         Returns:
-            List of dicts with title, url, image_url, snippet, price
+            List of dicts with title, url, image_url, price, brand, etc.
         """
         # Check cache
         cache_key = f"{keywords}:{num_results}"
@@ -53,49 +50,41 @@ class SearchService:
             return self._cache[cache_key]
 
         try:
-            # Add shopping-related terms to improve results
-            search_query = f"{keywords} buy online shop"
+            params = {
+                "engine": "amazon",
+                "k": keywords,
+                "amazon_domain": "amazon.com",
+                "api_key": self.api_key
+            }
 
-            response = self.client.search(
-                query=search_query,
-                search_depth="basic",
-                max_results=num_results,
-                include_images=include_images,
-            )
+            search = GoogleSearch(params)
+            results_dict = search.get_dict()
+            organic_results = results_dict.get("organic_results", [])
 
             results = []
 
             # Process search results
-            for result in response.get("results", []):
+            for result in organic_results[:num_results]:
+                # Extract image URL - prefer thumbnail since it's most common
+                image_url = result.get("thumbnail")
+                
                 item = {
                     "title": result.get("title", ""),
-                    "url": result.get("url", ""),
-                    "snippet": result.get("content", ""),
-                    "image_url": None,
-                    "price": None,
+                    "url": result.get("link", ""),
+                    "snippet": result.get("title", ""),  # Using title as snippet if not available
+                    "image_url": image_url,
+                    "price": result.get("price", ""),
+                    "extracted_price": result.get("extracted_price"),
+                    "old_price": result.get("old_price"),
+                    "brand": result.get("brand", ""),
+                    "rating": result.get("rating"),
+                    "reviews": result.get("reviews"),
+                    "bought_last_month": result.get("bought_last_month"),
+                    "delivery": ", ".join(result.get("delivery", [])) if isinstance(result.get("delivery"), list) else result.get("delivery", ""),
+                    "asin": result.get("asin"),
                 }
 
-                # Extract price from snippet if present
-                price = self._extract_price(item["snippet"])
-                if price:
-                    item["price"] = price
-
                 results.append(item)
-
-            # Add images from Tavily's image results
-            images = response.get("images", [])
-            for i, image_url in enumerate(images):
-                if i < len(results):
-                    results[i]["image_url"] = image_url
-                else:
-                    # Add extra results for images without matching search results
-                    results.append({
-                        "title": f"Fashion Item {i + 1}",
-                        "url": "",
-                        "snippet": "",
-                        "image_url": image_url,
-                        "price": None,
-                    })
 
             # Cache results
             self._cache[cache_key] = results
@@ -104,7 +93,7 @@ class SearchService:
             return results
 
         except Exception as e:
-            logger.error(f"Error searching for garments: {e}")
+            logger.error(f"Error searching for garments on Amazon: {e}")
             return []
 
     def search_with_multiple_keywords(
@@ -123,15 +112,15 @@ class SearchService:
             Combined and deduplicated list of results
         """
         all_results = []
-        seen_urls = set()
+        seen_asins = set()
 
         for keywords in keywords_list:
             results = self.search_garments(keywords, num_results=results_per_keyword)
 
             for result in results:
-                url = result.get("url", "")
-                if url and url not in seen_urls:
-                    seen_urls.add(url)
+                asin = result.get("asin", result.get("url", ""))
+                if asin and asin not in seen_asins:
+                    seen_asins.add(asin)
                     all_results.append(result)
 
         return all_results
@@ -221,32 +210,6 @@ class SearchService:
             return None
 
         return self.download_garment_image(image_url)
-
-    def _extract_price(self, text: str) -> Optional[str]:
-        """
-        Extract price from text snippet.
-
-        Args:
-            text: Text that may contain price
-
-        Returns:
-            Price string or None
-        """
-        import re
-
-        # Common price patterns
-        patterns = [
-            r"\$\d+(?:\.\d{2})?",  # $XX.XX or $XX
-            r"USD\s*\d+(?:\.\d{2})?",  # USD XX.XX
-            r"\d+(?:\.\d{2})?\s*(?:USD|dollars?)",  # XX USD
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(0)
-
-        return None
 
     def clear_cache(self):
         """Clear the search results cache."""

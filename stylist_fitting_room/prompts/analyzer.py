@@ -18,28 +18,115 @@ Return ONLY a valid JSON object with no additional text:
 }
 """
 
-QUERY_ANALYSIS_PROMPT = """Analyze this fashion request and extract the key requirements.
+QUERY_ANALYSIS_PROMPT = """
+You are a fashion and costume query analysis engine.
 
-User request: {query}
+Your task is to extract structured clothing-related requirements from any user request,
+including normal fashion, themed outfits, costumes, cosplay, uniforms, cultural wear,
+or event-specific clothing.
 
-Extract:
-1. Desired style: casual / formal / vintage / streetwear / minimalist / bohemian / preppy / athletic / other
-2. Occasion: work / party / date / travel / daily / wedding / interview / gym / beach / other
-3. Weather hints: hot / cold / mild / rainy / not specified
-4. Specific items mentioned: list any specific garment types (e.g., dress, jeans, blazer)
-5. Color preferences: any colors mentioned
-6. Budget hints: luxury / affordable / not specified
+User request:
+{query}
 
-Return ONLY a valid JSON object with no additional text:
-{
+IMPORTANT RULES:
+
+1. Extract only information explicitly mentioned or clearly implied.
+2. Do NOT hallucinate missing details.
+3. If a field is not mentioned, return "not specified".
+4. If multiple values are strongly implied, choose the most dominant one.
+5. Always interpret special-event outfits (e.g., Halloween costume, cosplay, Christmas outfit)
+   as valid clothing requests.
+6. The "query" field in the output must exactly match the original user request.
+7. Return ONLY valid JSON. No explanations. No markdown. No extra text.
+
+----------------------------------------
+FIELD DEFINITIONS
+----------------------------------------
+
+1. style:
+General aesthetic or theme of the outfit.
+Examples:
+casual, formal, vintage, streetwear, minimalist, bohemian, preppy,
+athletic, business, elegant, chic, edgy, sporty,
+costume, cosplay, fantasy, historical, cultural, uniform, other
+
+If the request is for a character or themed costume
+(e.g., vampire, superhero, anime character),
+set style = "costume" unless a clearer aesthetic is specified.
+
+2. occasion:
+The purpose or event where the outfit will be worn.
+Examples:
+work, party, date, travel, daily, wedding, interview,
+gym, beach, festival, halloween, christmas,
+themed-event, performance, cosplay-event, other
+
+If the request is for a specific holiday or event,
+use the closest matching category.
+
+3. weather:
+hot, cold, mild, rainy, snowy, not specified
+
+Infer ONLY if clearly implied (e.g., "winter coat" → cold).
+
+4. items:
+List specific clothing items mentioned.
+Examples:
+dress, jeans, blazer, suit, shirt, t-shirt, hoodie,
+skirt, shorts, trousers, coat, jacket,
+sneakers, boots, heels, sandals,
+costume, mask, cape, uniform, other
+
+Return empty list if none mentioned.
+
+5. colors:
+List explicitly mentioned colors only.
+If vague (e.g., "dark colors", "bright"), keep the phrase.
+
+Return empty list if none mentioned.
+
+6. budget:
+luxury, premium, mid-range, affordable, budget, not specified
+
+Only extract if clearly stated (e.g., "cheap", "high-end designer").
+
+----------------------------------------
+OUTPUT FORMAT (STRICT JSON ONLY)
+----------------------------------------
+
+{{
+    "query": "{query}",
     "style": "...",
     "occasion": "...",
     "weather": "...",
     "items": [...],
     "colors": [...],
     "budget": "..."
-}
+}}
 """
+
+# QUERY_ANALYSIS_PROMPT = """Analyze this fashion request and extract the key requirements.
+
+# User request: {query}
+
+# Extract:
+# 1. Desired style: casual / formal / vintage / streetwear / minimalist / bohemian / preppy / athletic / other
+# 2. Occasion: work / party / date / travel / daily / wedding / interview / gym / beach / other
+# 3. Weather hints: hot / cold / mild / rainy / not specified
+# 4. Specific items mentioned: list any specific garment types (e.g., dress, jeans, blazer)
+# 5. Color preferences: any colors mentioned
+# 6. Budget hints: luxury / affordable / not specified
+
+# Return ONLY a valid JSON object with no additional text:
+# {{
+#     "style": "...",
+#     "occasion": "...",
+#     "weather": "...",
+#     "items": [...],
+#     "colors": [...],
+#     "budget": "..."
+# }}
+# """
 
 SEARCH_KEYWORDS_PROMPT = """Based on the user profile and their fashion request, generate SEPARATE search keywords for TOPS and BOTTOMS.
 
@@ -54,6 +141,8 @@ Fashion Request:
 - Weather: {weather}
 - Specific items: {items}
 - Color preferences: {colors}
+
+Original Query: {query}
 
 Generate SEPARATE keyword combinations for:
 1. TOPS (shirts, t-shirts, blouses, sweaters, jackets, etc.) - 3-4 keywords

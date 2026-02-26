@@ -12,7 +12,6 @@ import tenacity
 
 from config import GEMINI_API_KEY, GEMINI_MODEL, GEMINI_TEMPERATURE, GEMINI_MAX_TOKENS
 
-
 # ============================================================================
 # Pydantic Response Models for Gemini Structured Output
 # ============================================================================
@@ -271,6 +270,7 @@ class GeminiService:
             Dict with style, occasion, weather, items, colors, budget
         """
         defaults = {
+            "query": query,
             "style": "casual",
             "occasion": "daily",
             "weather": "not specified",
@@ -280,11 +280,16 @@ class GeminiService:
         }
         try:
             prompt = QUERY_ANALYSIS_PROMPT.format(query=query)
+            # logger.info(f"Query analysis prompt: {prompt}")
             response = self.model.generate_content(
                 prompt,
-                generation_config=self._get_structured_config(QueryAnalysisResponse),
+                # generation_config=self._get_structured_config(QueryAnalysisResponse),
             )
-            result = json.loads(response.text)
+
+            # logger.info(f"Query analysis response: {response.text}")
+            cleaned_response = response.text.strip("```json").strip("```").strip()
+
+            result = json.loads(cleaned_response)
             return self._apply_defaults(result, defaults)
 
         except Exception as e:
@@ -316,6 +321,7 @@ class GeminiService:
                 weather=query_analysis.get("weather", "not specified"),
                 items=", ".join(query_analysis.get("items", [])) or "any",
                 colors=", ".join(query_analysis.get("colors", [])) or "any",
+                query=query_analysis.get("query", "not specified"),
             )
 
             response = self.model.generate_content(
@@ -567,3 +573,4 @@ class GeminiService:
             logger.error(f"Error classifying garment: {e}")
             defaults["description"] = "Unable to classify garment"
             return defaults
+

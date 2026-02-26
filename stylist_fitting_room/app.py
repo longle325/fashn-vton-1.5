@@ -106,6 +106,7 @@ class StylistApp:
 
             # Step 1: Analyze query
             logger.info("Analyzing query...")
+            logger.info(f"Query: {query}")
             self.query_requirements = self.gemini_service.analyze_query(query)
             logger.info(f"Query requirements: {self.query_requirements}")
 
@@ -398,6 +399,10 @@ def create_ui() -> gr.Blocks:
 
                 find_btn = gr.Button("Find Outfits", variant="primary", size="lg")
                 status_text = gr.Textbox(label="Status", interactive=False)
+                
+                # New lists for detail components
+                top_details_list = []
+                bottom_details_list = []
 
             # Right column: Results
             with gr.Column(scale=2):
@@ -408,14 +413,17 @@ def create_ui() -> gr.Blocks:
                     top_try_buttons = []
 
                     for i in range(MAX_TOPS_SUGGESTIONS):
-                        with gr.Column(scale=1, min_width=120):
+                        with gr.Column(scale=1, min_width=150):
                             img = gr.Image(
                                 label=f"Top {i + 1}",
                                 type="pil",
-                                height=180,
+                                height=200,
                                 interactive=False,
                             )
                             top_images.append(img)
+                            
+                            top_details = gr.Markdown(value="*Details will appear here*")
+                            top_details_list.append(top_details)
 
                             btn = gr.Button(f"Try On", size="sm")
                             top_try_buttons.append(btn)
@@ -427,14 +435,17 @@ def create_ui() -> gr.Blocks:
                     bottom_try_buttons = []
 
                     for i in range(MAX_BOTTOMS_SUGGESTIONS):
-                        with gr.Column(scale=1, min_width=120):
+                        with gr.Column(scale=1, min_width=150):
                             img = gr.Image(
                                 label=f"Bottom {i + 1}",
                                 type="pil",
-                                height=180,
+                                height=200,
                                 interactive=False,
                             )
                             bottom_images.append(img)
+                            
+                            bottom_details = gr.Markdown(value="*Details will appear here*")
+                            bottom_details_list.append(bottom_details)
 
                             btn = gr.Button(f"Try On", size="sm")
                             bottom_try_buttons.append(btn)
@@ -530,9 +541,51 @@ def create_ui() -> gr.Blocks:
                 else:
                     set_outputs.extend([None, None, f"*Set {i + 1} not available*"])
 
+            # Prepare top details
+            top_details = []
+            for i in range(MAX_TOPS_SUGGESTIONS):
+                if i < len(app.current_tops):
+                    item = app.current_tops[i]
+                    details = f"**{item.get('brand', 'Unknown Brand')}**\n"
+                    details += f"{item.get('price', 'N/A')}"
+                    if item.get('old_price'):
+                        details += f" ~~{item.get('old_price')}~~"
+                    details += "\n"
+                    if item.get('rating'):
+                        details += f"{item.get('rating')} ⭐ ({item.get('reviews', 0)} reviews)\n"
+                    if item.get('bought_last_month'):
+                        details += f"*{item.get('bought_last_month')}*\n"
+                    if item.get('delivery'):
+                        details += f"<small>{item.get('delivery')}</small>"
+                    top_details.append(details)
+                else:
+                    top_details.append("*Not available*")
+
+            # Prepare bottom details
+            bottom_details = []
+            for i in range(MAX_BOTTOMS_SUGGESTIONS):
+                if i < len(app.current_bottoms):
+                    item = app.current_bottoms[i]
+                    details = f"**{item.get('brand', 'Unknown Brand')}**\n"
+                    details += f"{item.get('price', 'N/A')}"
+                    if item.get('old_price'):
+                        details += f" ~~{item.get('old_price')}~~"
+                    details += "\n"
+                    if item.get('rating'):
+                        details += f"{item.get('rating')} ⭐ ({item.get('reviews', 0)} reviews)\n"
+                    if item.get('bought_last_month'):
+                        details += f"*{item.get('bought_last_month')}*\n"
+                    if item.get('delivery'):
+                        details += f"<small>{item.get('delivery')}</small>"
+                    bottom_details.append(details)
+                else:
+                    bottom_details.append("*Not available*")
+
             return (
                 *top_imgs,
+                *top_details,
                 *bottom_imgs,
+                *bottom_details,
                 *set_outputs,
                 result["explanation"],
                 result["top_urls"],
@@ -551,7 +604,9 @@ def create_ui() -> gr.Blocks:
             inputs=[person_image, gender, body_shape, skin_tone, query],
             outputs=[
                 *top_images,
+                *top_details_list,
                 *bottom_images,
+                *bottom_details_list,
                 *set_outputs,
                 stylist_explanation,
                 top_urls_state,
@@ -621,7 +676,7 @@ def create_ui() -> gr.Blocks:
             - Click "Try On" to see how each suggestion looks on you
             - Use "Try Full Set" to try on both top and bottom together
 
-            *Powered by Gemini 2.0 Flash, Tavily Search, and FASHN VTON 1.5*
+            *Powered by Gemini 2.5 Flash Lite, Amazon Search, and FASHN VTON 1.5*
             """
         )
 
